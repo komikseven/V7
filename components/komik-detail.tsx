@@ -141,7 +141,7 @@ export function ComikDetail(props: Props) {
                     {series?.name ?? "Memuat..."}
                   </h1>
                   <div className="flex flex-wrap gap-1">
-                    <MangaTypeBadge genres={genres ?? []} />
+                    <MangaTypeBadge mangaType={series?.mangaType} genres={genres ?? []} />
                     {genres && genres.length > 0 &&
                       genres
                         .filter((g) => !MANGA_TYPES.some((t) => t.slug === g.slug))
@@ -182,7 +182,7 @@ export function ComikDetail(props: Props) {
               </div>
 
               {/* Sinopsis — 2 baris, baca selengkapnya, auto-tutup 5 detik */}
-              {series?.description && <SynopsisBlock text={series.description} />}
+              <SynopsisBlock text={series?.description || ""} />
 
               {/* Genres */}
               {genres && genres.length > 0 && (
@@ -234,10 +234,25 @@ export function ComikDetail(props: Props) {
 }
 
 
-// ── MangaTypeBadge — deteksi tipe dari genres/tags ──────────────────────────
-function MangaTypeBadge({ genres }: { genres: Genre[] }) {
-  const matched = MANGA_TYPES.find((t) => genres.some((g) => g.slug === t.slug))
-  const type = matched ?? { label: "Manga", emoji: "🇯🇵", slug: "manga" }
+// ── MangaTypeBadge — deteksi dari series.mangaType (slug category) atau tags ──
+function MangaTypeBadge({ mangaType, genres }: { mangaType?: string; genres: Genre[] }) {
+  // Priority 1: dari slug/nama category (sudah diparse di api.ts)
+  // Priority 2: dari tags post
+  // Priority 3: fallback manga
+  const typeFromCategory = mangaType
+    ? MANGA_TYPES.find((t) => t.slug === mangaType)
+    : undefined
+
+  const typeFromTags = !typeFromCategory
+    ? MANGA_TYPES.find((t) =>
+        genres.some((g) =>
+          g.slug.includes(t.slug) || g.name.toLowerCase().includes(t.slug)
+        )
+      )
+    : undefined
+
+  const type = typeFromCategory ?? typeFromTags ?? { label: "Manga", emoji: "🇯🇵", slug: "manga" }
+
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-semibold text-secondary-foreground">
       {type.label}
@@ -250,10 +265,10 @@ function MangaTypeBadge({ genres }: { genres: Genre[] }) {
 function SynopsisBlock({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isEmpty = !text || text.trim().length === 0
 
   function handleExpand() {
     setExpanded(true)
-    // Auto-tutup setelah 5 detik
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       setExpanded(false)
@@ -265,7 +280,6 @@ function SynopsisBlock({ text }: { text: string }) {
     setExpanded(false)
   }
 
-  // Cleanup timer saat unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
@@ -278,19 +292,27 @@ function SynopsisBlock({ text }: { text: string }) {
         <Tag className="h-3.5 w-3.5 text-primary" />
         <span className="text-xs font-semibold text-foreground uppercase tracking-wide">Sinopsis</span>
       </div>
-      <p
-        className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 ${
-          expanded ? "" : "line-clamp-2"
-        }`}
-      >
-        {text}
-      </p>
-      <button
-        onClick={expanded ? handleCollapse : handleExpand}
-        className="mt-1 text-xs font-medium text-primary hover:underline"
-      >
-        {expanded ? "Sembunyikan" : "Baca selengkapnya"}
-      </button>
+      {isEmpty ? (
+        <p className="text-sm leading-relaxed text-muted-foreground italic">
+          Sinopsis belum tersedia.
+        </p>
+      ) : (
+        <>
+          <p
+            className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 ${
+              expanded ? "" : "line-clamp-2"
+            }`}
+          >
+            {text}
+          </p>
+          <button
+            onClick={expanded ? handleCollapse : handleExpand}
+            className="mt-1 text-xs font-medium text-primary hover:underline"
+          >
+            {expanded ? "Sembunyikan" : "Baca selengkapnya"}
+          </button>
+        </>
+      )}
     </div>
   )
 }
