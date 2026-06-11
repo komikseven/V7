@@ -8,6 +8,7 @@ export interface Series {
   description?: string
   thumbnail?: string
   genres?: Genre[]
+  mangaType?: string  // "manga" | "manhwa" | "manhua" | undefined
 }
 
 export interface Chapter {
@@ -123,6 +124,14 @@ export function parseSeries(raw: RawCategory): Series {
   }
   sinopsis = decodeHtml(sinopsis.replace(/<[^>]+>/g, "").trim())
 
+  // Deteksi tipe komik dari slug/nama category
+  const slug = (raw.slug ?? "").toLowerCase()
+  const name = (raw.name ?? "").toLowerCase()
+  let mangaType: string | undefined
+  if (slug.includes("manhwa") || name.includes("manhwa")) mangaType = "manhwa"
+  else if (slug.includes("manhua") || name.includes("manhua")) mangaType = "manhua"
+  else if (slug.includes("manga") || name.includes("manga")) mangaType = "manga"
+
   return {
     id: raw.id,
     name: decodeHtml((raw.name ?? "").replace(/^Komik\s+/i, "")),
@@ -130,6 +139,7 @@ export function parseSeries(raw: RawCategory): Series {
     count: raw.count ?? 0,
     description: sinopsis || undefined,
     thumbnail: cover !== "/manga-placeholder.png" ? cover : undefined,
+    mangaType,
   }
 }
 
